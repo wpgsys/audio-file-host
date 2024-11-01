@@ -9,6 +9,7 @@
     "author": "Alex S - WpgSys.ca",
     "license": "MIT",
     "dependencies": {
+        "dotenv": "^16.4.5",
         "formidable": "^2.1.2"
     }
 }

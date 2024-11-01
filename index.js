@@ -5,16 +5,57 @@ const fs = require('fs');
 const path = require('path');
 const formidable = require('formidable');
 
+// Load environment variables from .env file (optional)
+require('dotenv').config();
+
 // Define the port
 const PORT = process.env.PORT || 3000;
 
-// Directory to store uploaded files
+// Directories
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // Ensure the uploads directory exists
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR);
 }
+
+// Define supported audio file extensions and their corresponding MIME types
+const supportedAudioTypes = {
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.aiff': 'audio/aiff',
+  '.alac': 'audio/alac',
+  '.wma': 'audio/x-ms-wma',
+  '.amr': 'audio/amr',
+  '.au': 'audio/basic',
+  '.pcm': 'audio/L16',
+  '.dsd': 'audio/dsd',
+  '.opus': 'audio/opus',
+  '.ac3': 'audio/ac3',
+  '.dts': 'audio/vnd.dts',
+  '.voc': 'audio/voc',
+  '.tta': 'audio/tta',
+  '.ra': 'audio/vnd.rn-realaudio',
+  '.mka': 'audio/x-matroska',
+  '.mid': 'audio/midi',
+  '.midi': 'audio/midi',
+  '.rmi': 'audio/midi',
+  '.cda': 'application/x-cdf',
+  '.mpa': 'audio/mpeg',
+  '.mp2': 'audio/mpeg',
+  '.mp1': 'audio/mpeg',
+  '.m3u': 'audio/x-mpegurl',
+  '.pls': 'audio/x-scpls',
+  '.s3m': 'audio/s3m',
+  '.it': 'audio/it',
+  '.xm': 'audio/xm',
+  // Add more formats as needed
+};
 
 // Function to serve static files
 function serveStaticFile(res, filePath, contentType, responseCode = 200) {
@@ -35,15 +76,19 @@ function handleUpload(req, res) {
     multiples: false,
     uploadDir: UPLOAD_DIR,
     keepExtensions: true,
-    maxFileSize: 500 * 1024 * 1024, // 500 MB
+    maxFileSize: process.env.MAX_FILE_SIZE || 500 * 1024 * 1024, // 500 MB
   });
 
   form.parse(req, (err, fields, files) => {
     if (err) {
       res.writeHead(400, { 'Content-Type': 'text/html' });
       res.end(`
-        <p>Error: ${err.message}</p>
-        <a href="/">Go back</a>
+        <div class="container mt-5">
+          <div class="alert alert-danger" role="alert">
+            <strong>Error:</strong> ${err.message}
+          </div>
+          <a href="/" class="btn btn-primary">Go Back</a>
+        </div>
       `);
       return;
     }
@@ -52,9 +97,30 @@ function handleUpload(req, res) {
     if (!file) {
       res.writeHead(400, { 'Content-Type': 'text/html' });
       res.end(`
-        <p>Error: No file uploaded.</p>
-        <a href="/">Go back</a>
+        <div class="container mt-5">
+          <div class="alert alert-warning" role="alert">
+            <strong>Error:</strong> No file uploaded.
+          </div>
+          <a href="/" class="btn btn-primary">Go Back</a>
+        </div>
       `);
+      return;
+    }
+
+    const fileExtension = path.extname(file.originalFilename).toLowerCase();
+    if (!supportedAudioTypes[fileExtension]) {
+      // Delete the unsupported file
+      fs.unlink(file.filepath, () => {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(`
+          <div class="container mt-5">
+            <div class="alert alert-danger" role="alert">
+              <strong>Error:</strong> Unsupported audio format (${fileExtension}).
+            </div>
+            <a href="/" class="btn btn-primary">Go Back</a>
+          </div>
+        `);
+      });
       return;
     }
 
@@ -67,19 +133,26 @@ function handleUpload(req, res) {
       if (renameErr) {
         res.writeHead(500, { 'Content-Type': 'text/html' });
         res.end(`
-          <p>Error: ${renameErr.message}</p>
-          <a href="/">Go back</a>
+          <div class="container mt-5">
+            <div class="alert alert-danger" role="alert">
+              <strong>Error:</strong> ${renameErr.message}
+            </div>
+            <a href="/" class="btn btn-primary">Go Back</a>
+          </div>
         `);
         return;
       }
 
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
-        <p>File Uploaded Successfully!</p>
-        <p>File Name: ${newFileName}</p>
-        <a href="/">Upload another file</a>
-        <br>
-        <a href="/uploads/${newFileName}">Access the uploaded file</a>
+        <div class="container mt-5">
+          <div class="alert alert-success" role="alert">
+            <strong>Success!</strong> File uploaded successfully.
+          </div>
+          <p><strong>File Name:</strong> ${newFileName}</p>
+          <a href="/" class="btn btn-primary">Upload Another File</a>
+          <a href="/uploads/${newFileName}" class="btn btn-secondary ms-2">Access File</a>
+        </div>
       `);
     });
   });
@@ -89,54 +162,43 @@ function handleUpload(req, res) {
 function listFiles(res) {
   fs.readdir(UPLOAD_DIR, (err, files) => {
     if (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('500 - Internal Error');
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
       return;
     }
 
-    let fileList = '';
-    files.forEach((file) => {
-      const filePath = `/uploads/${file}`;
-      fileList += `
-        <li>
-          <strong>${file}</strong><br>
-          <audio controls src="${filePath}"></audio>
-        </li>
-      `;
-    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(files));
+  });
+}
 
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Audio Hosting Site</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; }
-          h1, h2 { color: #333; }
-          form { margin-bottom: 30px; }
-          ul { list-style-type: none; padding: 0; }
-          li { margin-bottom: 20px; }
-          audio { display: block; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <h1>Upload an Audio File</h1>
-        <form action="/upload" method="POST" enctype="multipart/form-data">
-          <input type="file" name="audioFile" accept="audio/*" required>
-          <button type="submit">Upload</button>
-        </form>
+// Function to serve `index.html` and other static files from `public/`
+function servePublicFile(res, pathname) {
+  let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+  const ext = path.extname(filePath).toLowerCase();
 
-        <h2>Available Audio Files</h2>
-        <ul>
-          ${fileList || '<li>No files uploaded yet.</li>'}
-        </ul>
-      </body>
-      </html>
-    `;
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    // Add more MIME types as needed
+  };
 
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(html);
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      // File not found, serve 404 page
+      serveStaticFile(res, path.join(PUBLIC_DIR, '404.html'), 'text/html', 404);
+    } else {
+      serveStaticFile(res, filePath, contentType);
+    }
   });
 }
 
@@ -148,19 +210,13 @@ const server = http.createServer((req, res) => {
   // Routing
   if (req.method === 'GET') {
     if (pathname === '/' || pathname === '/index.html') {
-      listFiles(res);
+      servePublicFile(res, '/index.html');
     } else if (pathname.startsWith('/uploads/')) {
       // Serve uploaded files
-      const filePath = path.join(UPLOAD_DIR, pathname.replace('/uploads/', ''));
-      const ext = path.extname(filePath).toLowerCase();
-      const mimeTypes = {
-        '.mp3': 'audio/mpeg',
-        '.wav': 'audio/wav',
-        '.ogg': 'audio/ogg',
-        '.m4a': 'audio/mp4',
-        '.flac': 'audio/flac',
-      };
-      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      const fileName = pathname.replace('/uploads/', '');
+      const filePath = path.join(UPLOAD_DIR, fileName);
+      const fileExtension = path.extname(filePath).toLowerCase();
+      const contentType = supportedAudioTypes[fileExtension] || 'application/octet-stream';
 
       fs.access(filePath, fs.constants.F_OK, (err) => {
         if (err) {
@@ -170,6 +226,11 @@ const server = http.createServer((req, res) => {
           serveStaticFile(res, filePath, contentType);
         }
       });
+    } else if (pathname.startsWith('/public/')) {
+      // Serve other public assets
+      servePublicFile(res, pathname.replace('/public/', '/'));
+    } else if (pathname === '/file-list') {
+      listFiles(res);
     } else {
       // 404 for other routes
       res.writeHead(404, { 'Content-Type': 'text/plain' });
