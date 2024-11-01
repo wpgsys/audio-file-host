@@ -45,6 +45,10 @@
       .then(response => response.json())
       .then(files => {
         const fileList = document.getElementById('file-list');
+        if (files.length === 0) {
+          fileList.innerHTML = '<li>No files uploaded yet.</li>';
+          return;
+        }
         files.forEach(file => {
           const listItem = document.createElement('li');
           listItem.innerHTML = `
@@ -53,6 +57,11 @@
           `;
           fileList.appendChild(listItem);
         });
+      })
+      .catch(error => {
+        console.error('Error fetching file list:', error);
+        const fileList = document.getElementById('file-list');
+        fileList.innerHTML = '<li>Error loading files.</li>';
       });
   </script>
 </body>
