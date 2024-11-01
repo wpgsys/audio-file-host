@@ -39,7 +39,7 @@ A simple Node.js application that allows users to upload, host, and play audio f
 
    ```bash
    git clone https://github.com/wpgsys/audio-file-host.git
-   cd audio-hosting-site
+   cd audio-file-host
    ```
 
 2. **Install dependencies:**
