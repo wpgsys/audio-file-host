@@ -7,7 +7,6 @@ A simple Node.js application that allows users to upload, host, and play audio f
 ## Table of Contents
 
 - [Features](#features)
-- [Demo](#demo)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -26,10 +25,6 @@ A simple Node.js application that allows users to upload, host, and play audio f
 - Displays a list of uploaded audio files with playback controls.
 - Simple and intuitive user interface.
 - Server-side validation of file types and sizes.
-
-## Demo
-
-![Audio Hosting Website Screenshot](https://via.placeholder.com/800x400.png?text=Audio+Hosting+Website+Screenshot)
 
 *Note: Replace the image URL with a screenshot of your application.*
 
